@@ -1,6 +1,7 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"gorm.io/gorm"
@@ -44,6 +45,17 @@ type Detail struct {
 	Transactions []Transaction `gorm:"foreignKey:DetailID"`
 }
 
+// BeforeSave hook untuk validasi Status
+func (t *Detail) BeforeSave(tx *gorm.DB) error {
+	allowedStatuses := []string{"pending", "loaned", "return"}
+	for _, allowedStatus := range allowedStatuses {
+		if t.Status == allowedStatus {
+			return nil // Valid status
+		}
+	}
+	return fmt.Errorf("invalid status: %s, allowed values are: pending, on loan, return", t.Status)
+}
+
 func (u *Detail) TableName() string {
 	return "Detail"
 }
@@ -71,13 +83,24 @@ func DetailsToMap(details []Detail) []map[string]interface{} {
 type Transaction struct {
 	gorm.Model
 	UserID   uint   `gorm:"not null"`
-	DetailID uint   `gorm:"null"`
+	DetailID *uint  `gorm:"null"`
 	ItemID   uint   `gorm:"not null"`
 	Quantity int    `gorm:"not null"`
 	Status   string `gorm:"size:50;not null;default:'draft'"`
 	User     User   `gorm:"foreignKey:UserID"`
 	Detail   Detail `gorm:"foreignKey:DetailID"`
 	Item     Item   `gorm:"foreignKey:ItemID"`
+}
+
+// BeforeSave hook untuk validasi Status
+func (t *Transaction) BeforeSave(tx *gorm.DB) error {
+	allowedStatuses := []string{"draft", "finish", "return"}
+	for _, allowedStatus := range allowedStatuses {
+		if t.Status == allowedStatus {
+			return nil // Valid status
+		}
+	}
+	return fmt.Errorf("invalid status: %s, allowed values are: draft, finish, return", t.Status)
 }
 
 func (u *Transaction) TableName() string {
@@ -87,14 +110,15 @@ func (u *Transaction) TableName() string {
 // Tambahkan metode ToMap untuk konversi user ke map
 func (u *Transaction) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"user_id":     u.UserID,
-		"detail_id":   u.DetailID,
-		"item_id":     u.ItemID,
-		"user_name":   u.User.Name,
-		"detail_code": u.Detail.Code,
-		"item_name":   u.Item.Name,
-		"quantity":    u.Quantity,
-		"status":      u.Status,
+		"transaction_id": u.ID,
+		"user_id":        u.UserID,
+		"detail_id":      u.DetailID,
+		"item_id":        u.ItemID,
+		"user_name":      u.User.Name,
+		"detail_code":    u.Detail.Code,
+		"item_name":      u.Item.Name,
+		"quantity":       u.Quantity,
+		"status":         u.Status,
 	}
 }
 

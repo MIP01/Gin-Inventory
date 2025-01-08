@@ -27,11 +27,10 @@ func init() {
 
 // Daftar tabel schema
 type TransactionSchema struct {
-	UserID   int    `json:"user_id" binding:"required,numeric"`
-	DetailID int    `json:"detail_id" binding:"omitempty,numeric"`
-	ItemID   int    `json:"item_id" binding:"omitempty,numeric"`
+	UserID   uint   `json:"user_id" binding:"omitempty,numeric"`
+	ItemID   uint   `json:"item_id" binding:"required,numeric"`
 	Quantity int    `json:"quantity" binding:"required,min=1"`
-	Status   string `json:"status" binding:"required"`
+	Status   string `json:"status" binding:"omitempty"`
 }
 
 type DetailSchema struct {
@@ -46,21 +45,18 @@ type ItemSchema struct {
 	Stock int    `json:"stock" binding:"required,min=0"`
 }
 
-// UpdateSchema untuk validasi update
 type UpdateSchema struct {
 	Name     string `json:"name" binding:"omitempty,name_format"`
 	Email    string `json:"email" binding:"omitempty,email"`
 	Password string `json:"password" binding:"omitempty,min=3"`
 }
 
-// UserSchema untuk validasi user
 type UserSchema struct {
 	Name     string `json:"name" binding:"required,name_format"`
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=3"`
 }
 
-// LoginSchema untuk validasi login
 type LoginSchema struct {
 	Email    string `json:"email" binding:"required,email"`
 	Password string `json:"password" binding:"required,min=3"`

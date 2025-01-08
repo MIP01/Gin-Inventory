@@ -16,5 +16,10 @@ func SetupItemRoutes(api *gin.RouterGroup) {
 		api.POST("/item", controller.CreateItemHandler)
 		api.PUT("/item/:id", controller.UpdateItemHandler)
 		api.DELETE("/item/:id", controller.DeleteItemHandler)
+
+		api.GET("/chart", controller.GetTransactionsHandler)
+		api.POST("/chart", controller.CreateTransactionHandler)
+		api.PUT("/chart/:id", controller.UpdateTransactionHandler)
+		api.DELETE("/chart/:id", controller.DeleteTransactionHandler)
 	}
 }

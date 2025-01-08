@@ -125,6 +125,18 @@ func DeleteItemHandler(c *gin.Context) {
 		return
 	}
 
+	// Periksa apakah item digunakan dalam transaksi
+	var transactionCount int64
+	if err := config.DB.Model(&model.Transaction{}).Where("item_id = ?", id).Count(&transactionCount).Error; err != nil {
+		c.JSON(500, gin.H{"error": "Failed to check item usage in transactions"})
+		return
+	}
+
+	if transactionCount > 0 {
+		c.JSON(400, gin.H{"error": "Cannot delete item: Item is used in transactions"})
+		return
+	}
+
 	// Hapus item
 	if err := config.DB.Delete(&item).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
