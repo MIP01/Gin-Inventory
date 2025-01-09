@@ -47,7 +47,7 @@ type Detail struct {
 
 // BeforeSave hook untuk validasi Status
 func (t *Detail) BeforeSave(tx *gorm.DB) error {
-	allowedStatuses := []string{"pending", "loaned", "return"}
+	allowedStatuses := []string{"pending", "loaned", "return", "rejected"}
 	for _, allowedStatus := range allowedStatuses {
 		if t.Status == allowedStatus {
 			return nil // Valid status
@@ -94,7 +94,7 @@ type Transaction struct {
 
 // BeforeSave hook untuk validasi Status
 func (t *Transaction) BeforeSave(tx *gorm.DB) error {
-	allowedStatuses := []string{"draft", "finish", "return"}
+	allowedStatuses := []string{"draft", "pending", "finish", "return"}
 	for _, allowedStatus := range allowedStatuses {
 		if t.Status == allowedStatus {
 			return nil // Valid status
