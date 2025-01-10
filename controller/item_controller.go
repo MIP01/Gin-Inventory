@@ -52,11 +52,11 @@ func GetAllItemHandler(c *gin.Context) {
 
 func GetItemHandler(c *gin.Context) {
 	// Ambil ID item dari parameter URL
-	id := c.Param("id")
+	item_id := c.Param("item_id")
 
 	// Pastikan item ada
 	var item model.Item
-	if err := config.DB.First(&item, id).Error; err != nil {
+	if err := config.DB.First(&item, item_id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Item not found"})
 		return
 	}
@@ -65,7 +65,7 @@ func GetItemHandler(c *gin.Context) {
 }
 
 func UpdateItemHandler(c *gin.Context) {
-	id := c.Param("id")
+	item_id := c.Param("item_id")
 
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
@@ -75,7 +75,7 @@ func UpdateItemHandler(c *gin.Context) {
 
 	// Pastikan item ada
 	var item model.Item
-	if err := config.DB.First(&item, id).Error; err != nil {
+	if err := config.DB.First(&item, item_id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Item not found"})
 		return
 	}
@@ -110,7 +110,7 @@ func UpdateItemHandler(c *gin.Context) {
 }
 
 func DeleteItemHandler(c *gin.Context) {
-	id := c.Param("id")
+	item_id := c.Param("item_id")
 
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
@@ -120,14 +120,14 @@ func DeleteItemHandler(c *gin.Context) {
 
 	// Pastikan item ada
 	var item model.Item
-	if err := config.DB.First(&item, id).Error; err != nil {
+	if err := config.DB.First(&item, item_id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Item not found"})
 		return
 	}
 
 	// Periksa apakah item digunakan dalam transaksi
 	var transactionCount int64
-	if err := config.DB.Model(&model.Transaction{}).Where("item_id = ?", id).Count(&transactionCount).Error; err != nil {
+	if err := config.DB.Model(&model.Transaction{}).Where("item_id = ?", item_id).Count(&transactionCount).Error; err != nil {
 		c.JSON(500, gin.H{"error": "Failed to check item usage in transactions"})
 		return
 	}

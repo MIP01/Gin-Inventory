@@ -89,7 +89,7 @@ type Transaction struct {
 	Status   string `gorm:"size:50;not null;default:'draft'"`
 	User     User   `gorm:"foreignKey:UserID"`
 	Detail   Detail `gorm:"foreignKey:DetailID"`
-	Item     Item   `gorm:"foreignKey:ItemID"`
+	Item     Item   `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE;"`
 }
 
 // BeforeSave hook untuk validasi Status
@@ -114,9 +114,6 @@ func (u *Transaction) ToMap() map[string]interface{} {
 		"user_id":        u.UserID,
 		"detail_id":      u.DetailID,
 		"item_id":        u.ItemID,
-		"user_name":      u.User.Name,
-		"detail_code":    u.Detail.Code,
-		"item_name":      u.Item.Name,
 		"quantity":       u.Quantity,
 		"status":         u.Status,
 	}

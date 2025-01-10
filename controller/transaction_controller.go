@@ -64,34 +64,34 @@ func GetTransactionsHandler(c *gin.Context) {
 		return
 	}
 
-	var transactions []model.Transaction
+	var transaction []struct {
+		ID       uint   `json:"transaction_id"`
+		User     string `json:"user"`
+		ItemName string `json:"item_name"`
+		Quantity int    `json:"quantity"`
+		Status   string `json:"status"`
+	}
 
-	// Query dengan Preload
-	query := config.DB.Preload("User").Preload("Detail").Preload("Item")
+	query := config.DB.Table("transaction").
+		Select("user.name AS user, transaction.id, transaction.quantity, transaction.status, item.name AS item_name").
+		Joins("LEFT JOIN item ON item.id = transaction.item_id").
+		Joins("LEFT JOIN user ON user.id = transaction.user_id")
 
-	// Jika role adalah admin, ambil semua transaksi
-	if role == "admin" {
-		if err := query.Find(&transactions).Error; err != nil {
-			c.JSON(500, gin.H{"error": err.Error()})
-			return
-		}
-	} else if role == "user" {
-		// Jika role adalah user, ambil transaksi milik user tersebut
-		if err := query.Where("user_id = ?", currentUserID).Find(&transactions).Error; err != nil {
-			c.JSON(404, gin.H{"error": "Transaction not found"})
-			return
-		}
-	} else {
-		// Role tidak dikenali
-		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
+	// Jika role adalah user, filter transaksi berdasarkan user_id
+	if role == "user" {
+		query = query.Where("transaction.user_id = ?", currentUserID)
+	}
+
+	if err := query.Scan(&transaction).Error; err != nil {
+		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
 
-	c.JSON(200, gin.H{"transactions": model.TransactionsToMap(transactions)})
+	c.JSON(200, gin.H{"transaction": transaction})
 }
 
 func UpdateTransactionHandler(c *gin.Context) {
-	id := c.Param("id")
+	chart_id := c.Param("chart_id")
 
 	// Ambil current_id dan role dari context (diset oleh middleware)
 	currentUserID, exists := c.Get("current_id")
@@ -101,14 +101,14 @@ func UpdateTransactionHandler(c *gin.Context) {
 	}
 
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "user" && id != fmt.Sprint(currentUserID)) {
+	if !roleExists || (role != "user" && chart_id != fmt.Sprint(currentUserID)) {
 		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
 		return
 	}
 
 	// Pastikan transaction ada
 	var transaction model.Transaction
-	if err := config.DB.First(&transaction, id).Error; err != nil {
+	if err := config.DB.First(&transaction, chart_id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Transaction not found"})
 		return
 	}
@@ -149,7 +149,7 @@ func UpdateTransactionHandler(c *gin.Context) {
 }
 
 func DeleteTransactionHandler(c *gin.Context) {
-	id := c.Param("id")
+	chartID := c.Param("chart_id")
 
 	// Ambil current_id dan role dari context (diset oleh middleware)
 	currentUserID, exists := c.Get("current_id")
@@ -159,15 +159,21 @@ func DeleteTransactionHandler(c *gin.Context) {
 	}
 
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+	if !roleExists {
+		c.JSON(403, gin.H{"error": "Forbidden: Role not found"})
 		return
 	}
 
 	// Pastikan transaction ada
 	var transaction model.Transaction
-	if err := config.DB.First(&transaction, id).Error; err != nil {
+	if err := config.DB.First(&transaction, chartID).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Transaction not found"})
+		return
+	}
+
+	// Jika role adalah user, pastikan transaksi miliknya
+	if role == "user" && transaction.UserID != currentUserID {
+		c.JSON(403, gin.H{"error": "Forbidden: You can only delete your own transaction"})
 		return
 	}
 
@@ -178,7 +184,7 @@ func DeleteTransactionHandler(c *gin.Context) {
 	}
 
 	// Hapus transaction
-	if err := config.DB.Delete(&transaction).Error; err != nil {
+	if err := config.DB.Unscoped().Delete(&transaction).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

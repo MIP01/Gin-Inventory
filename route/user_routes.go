@@ -16,16 +16,17 @@ func SetupUserRoutes(api *gin.RouterGroup) {
 	api.GET("/admin", controller.GetAllAdminHandler)
 	api.POST("/admin", controller.CreateAdminHandler)
 
-	api.Use(middleware.AuthMiddleware())
+	auth := api.Group("/")
+	auth.Use(middleware.AuthMiddleware())
 	{
-		api.POST("/logout", middleware.LogoutHandler)
+		auth.POST("/logout", middleware.LogoutHandler)
 
-		api.GET("/user/:id", controller.GetUserHandler)
-		api.PUT("/user/:id", controller.UpdateUserHandler)
-		api.DELETE("/user/:id", controller.DeleteUserHandler)
+		auth.GET("/user/:id", controller.GetUserHandler)
+		auth.PUT("/user/:id", controller.UpdateUserHandler)
+		auth.DELETE("/user/:id", controller.DeleteUserHandler)
 
-		api.GET("/admin/:id", controller.GetAdminHandler)
-		api.PUT("/admin/:id", controller.UpdateAdminHandler)
-		api.DELETE("/admin/:id", controller.DeleteAdminHandler)
+		auth.GET("/admin/:id", controller.GetAdminHandler)
+		auth.PUT("/admin/:id", controller.UpdateAdminHandler)
+		auth.DELETE("/admin/:id", controller.DeleteAdminHandler)
 	}
 }

@@ -22,6 +22,12 @@ func init() {
 			re := regexp.MustCompile(`^[A-Za-z\s]+$`)
 			return re.MatchString(fl.Field().String())
 		})
+		// Register custom validation rule untuk format tanggal (hanya tanggal tanpa jam)
+		validate.RegisterValidation("date_format", func(fl validator.FieldLevel) bool {
+			// Format yang digunakan untuk validasi tanggal: YYYY-MM-DD
+			_, err := time.Parse("2006-01-02", fl.Field().String())
+			return err == nil
+		})
 	}
 }
 
@@ -34,10 +40,10 @@ type TransactionSchema struct {
 }
 
 type DetailSchema struct {
-	Code   string    `json:"code" binding:"required"`
-	Out    time.Time `json:"out" binding:"omitempty"`
-	Entry  time.Time `json:"entry" binding:"omitempty"`
-	Status string    `json:"status" binding:"required"`
+	Code   string `json:"code" binding:"omitempty"`
+	Out    string `json:"out" binding:"omitempty,date_format"`
+	Entry  string `json:"entry" binding:"omitempty,date_format"`
+	Status string `json:"status" binding:"omitempty"`
 }
 
 type ItemSchema struct {
