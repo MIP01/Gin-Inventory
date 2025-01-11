@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"gorm.io/gorm"
 )
 
@@ -20,9 +22,11 @@ func (u *User) TableName() string {
 // Tambahkan metode ToMap untuk konversi user ke map
 func (u *User) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"user_id": u.ID,
-		"name":    u.Name,
-		"email":   u.Email,
+		"user_id":    u.ID,
+		"name":       u.Name,
+		"email":      u.Email,
+		"created_at": u.CreatedAt.Format(time.RFC3339),
+		"updated_at": u.UpdatedAt.Format(time.RFC3339),
 	}
 }
 
@@ -51,9 +55,11 @@ func (u *Admin) TableName() string {
 // Tambahkan metode ToMap untuk konversi user ke map
 func (u *Admin) ToMap() map[string]interface{} {
 	return map[string]interface{}{
-		"admin_id": u.ID,
-		"name":     u.Name,
-		"email":    u.Email,
+		"admin_id":   u.ID,
+		"name":       u.Name,
+		"email":      u.Email,
+		"created_at": u.CreatedAt.Format(time.RFC3339),
+		"updated_at": u.UpdatedAt.Format(time.RFC3339),
 	}
 }
 

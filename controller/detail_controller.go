@@ -11,16 +11,10 @@ import (
 )
 
 func CreateDetailHandler(c *gin.Context) {
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || role != "user" {
+	if !currentUserExists || !roleExists || role != "user" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})
-		return
-	}
-
-	// Ambil current_user_id dari context
-	currentUserID, userExists := c.Get("current_id")
-	if !userExists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -98,30 +92,30 @@ func CreateDetailHandler(c *gin.Context) {
 }
 
 func GetAllDetailHandler(c *gin.Context) {
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
+	currentUserID, currentUserExists := c.Get("current_id")
+	role, roleExists := c.Get("role")
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	role, roleExists := c.Get("role")
-	if !roleExists {
-		c.JSON(403, gin.H{"error": "Forbidden: Role is not specified"})
-		return
-	}
-
 	var detail []struct {
-		ID       uint      `json:"detail_id"`
-		Code     string    `json:"code"`
-		Out      time.Time `json:"out"`
-		Entry    time.Time `json:"entry"`
-		Status   string    `json:"status"`
-		Quantity int       `json:"quantity"`
-		ItemName string    `json:"item_name"`
+		ID        uint      `json:"detail_id"`
+		Code      string    `json:"code"`
+		Out       time.Time `json:"out"`
+		Entry     time.Time `json:"entry"`
+		Status    string    `json:"status"`
+		Quantity  int       `json:"quantity"`
+		ItemName  string    `json:"item_name"`
+		CreatedAt string    `json:"created_at"`
+		UpdatedAt string    `json:"updated_at"`
 	}
 
 	query := config.DB.Table("detail").
-		Select("detail.id, detail.code, detail.out, detail.entry, detail.status, transaction.quantity, item.name AS item_name").
+		Select(`detail.id, detail.code, detail.out, detail.entry, detail.status, detail.created_at,
+		detail.updated_at, transaction.quantity, item.name AS item_name`).
 		Joins("LEFT JOIN transaction ON transaction.detail_id = detail.id").
 		Joins("LEFT JOIN item ON item.id = transaction.item_id")
 
@@ -138,19 +132,27 @@ func GetAllDetailHandler(c *gin.Context) {
 }
 
 func GetDetailHandler(c *gin.Context) {
-	// Ambil ID detail dari parameter URL
 	detail_id := c.Param("detail_id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
+	role, roleExists := c.Get("role")
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && detail_id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+	// Jika role adalah user, pastikan detail miliknya
+	if role == "user" {
+		var transaction model.Transaction
+		if err := config.DB.Where("detail_id = ? AND user_id = ?", detail_id, currentUserID).First(&transaction).Error; err != nil {
+			c.JSON(403, gin.H{"error": "Forbidden: You can only delete your own detail"})
+			return
+		}
+	} else if role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
 		return
 	}
 
@@ -172,40 +174,35 @@ func GetDetailHandler(c *gin.Context) {
 		Where("detail.id = ?", detail_id).
 		Scan(&detail).Error
 
-	if err != nil {
+	if err != nil || (detail.Code == "" && detail.Status == "" && detail.ItemName == "") {
 		c.JSON(404, gin.H{"error": "Detail not found"})
 		return
 	}
 
-	// Kembalikan hasil dalam format JSON
 	c.JSON(200, gin.H{"detail": detail})
 }
 
 func UpdateDetailHandler(c *gin.Context) {
 	detail_id := c.Param("detail_id")
 
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
+	role, roleExists := c.Get("role")
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
 		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
-	role, roleExists := c.Get("role")
-	if !roleExists {
-		c.JSON(403, gin.H{"error": "Forbidden: Role not found"})
-		return
-	}
-
-	// Jika role adalah "user", hanya izinkan akses pada data miliknya
-	if role == "user" && detail_id != fmt.Sprint(currentUserID) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
-		return
-	}
-
-	// Jika role adalah "admin", izinkan akses ke semua data
-	if role == "admin" {
-		// Admin dapat mengakses semua data, tanpa pembatasan pada detail_id
-	} else if role != "user" {
+	// Jika role adalah user, pastikan detail miliknya
+	if role == "user" {
+		var transaction model.Transaction
+		if err := config.DB.Where("detail_id = ? AND user_id = ?", detail_id, currentUserID).First(&transaction).Error; err != nil {
+			c.JSON(403, gin.H{"error": "Forbidden: You can only delete your own detail"})
+			return
+		}
+	} else if role != "admin" {
 		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
 		return
 	}
@@ -305,16 +302,13 @@ func UpdateDetailHandler(c *gin.Context) {
 func DeleteDetailHandler(c *gin.Context) {
 	detailID := c.Param("detail_id")
 
-	// Ambil currentUserID dan role dari context
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists {
-		c.JSON(403, gin.H{"error": "Forbidden: Role not found"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -332,6 +326,9 @@ func DeleteDetailHandler(c *gin.Context) {
 			c.JSON(403, gin.H{"error": "Forbidden: You can only delete your own detail"})
 			return
 		}
+	} else if role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
+		return
 	}
 
 	// Periksa status detail

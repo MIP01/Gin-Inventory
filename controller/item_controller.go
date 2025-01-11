@@ -137,8 +137,7 @@ func DeleteItemHandler(c *gin.Context) {
 		return
 	}
 
-	// Hapus item
-	if err := config.DB.Delete(&item).Error; err != nil {
+	if err := config.DB.Unscoped().Delete(&item).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}

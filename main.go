@@ -2,6 +2,7 @@ package main
 
 import (
 	"gin_iventory/config"
+	"gin_iventory/middleware"
 	"gin_iventory/route"
 	"log"
 
@@ -14,6 +15,9 @@ func main() {
 
 	// Inisialisasi router
 	r := gin.Default()
+
+	// Tambahkan Middleware CORS
+	r.Use(middleware.CORSMiddleware())
 
 	// Set up routes
 	api := r.Group("/api/v1")

@@ -58,19 +58,15 @@ func GetAllUserHandler(c *gin.Context) {
 }
 
 func GetUserHandler(c *gin.Context) {
-	// Ambil ID user dari parameter URL
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -81,22 +77,32 @@ func GetUserHandler(c *gin.Context) {
 		return
 	}
 
+	// Periksa akses berdasarkan role
+	if role == "user" {
+		// Pastikan user hanya bisa mengakses datanya sendiri
+		if fmt.Sprintf("%v", currentUserID) != id {
+			c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+			return
+		}
+	} else if role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
+		return
+	}
+
+	// Kirimkan data user
 	c.JSON(200, user.ToMap())
 }
 
 func UpdateUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || currentUserID == nil {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -104,6 +110,18 @@ func UpdateUserHandler(c *gin.Context) {
 	var user model.User
 	if err := config.DB.First(&user, id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "User not found"})
+		return
+	}
+
+	// Jika role adalah user, pastikan transaksi miliknya
+	if role == "user" {
+		// Pastikan transaksi milik pengguna saat ini
+		if err := config.DB.Where("id = ? AND user_id = ?", id, currentUserID).First(&user).Error; err != nil {
+			c.JSON(403, gin.H{"error": "Forbidden: You can only update your own transaction"})
+			return
+		}
+	} else if role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
 		return
 	}
 
@@ -149,16 +167,10 @@ func UpdateUserHandler(c *gin.Context) {
 func DeleteUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil role dari context (diset oleh middleware)
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+	if !roleExists || role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Only admin can delete users"})
 		return
 	}
 
@@ -169,11 +181,83 @@ func DeleteUserHandler(c *gin.Context) {
 		return
 	}
 
-	// Hapus user
-	if err := config.DB.Delete(&user).Error; err != nil {
-		c.JSON(500, gin.H{"error": err.Error()})
+	// Mulai transaksi database
+	tx := config.DB.Begin()
+	defer func() {
+		if r := recover(); r != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to delete user and related data"})
+		}
+	}()
+
+	// Cari semua transaksi milik user
+	var transactions []model.Transaction
+	if err := tx.Where("user_id = ?", id).Find(&transactions).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to find user transactions"})
 		return
 	}
 
-	c.JSON(200, gin.H{"message": "User deleted successfully"})
+	// Proses jika status detail adalah "loaned", kembalikan stok item
+	for _, transaction := range transactions {
+		if transaction.DetailID == nil {
+			continue
+		}
+
+		var detail model.Detail
+		if err := tx.First(&detail, *transaction.DetailID).Error; err != nil {
+			tx.Rollback()
+			c.JSON(404, gin.H{"error": "Detail not found"})
+			return
+		}
+
+		if detail.Status == "loaned" {
+			var item model.Item
+			if err := tx.First(&item, transaction.ItemID).Error; err != nil {
+				tx.Rollback()
+				c.JSON(404, gin.H{"error": "Item not found"})
+				return
+			}
+
+			item.Stock += transaction.Quantity
+			if err := tx.Save(&item).Error; err != nil {
+				tx.Rollback()
+				c.JSON(500, gin.H{"error": "Failed to update item stock"})
+				return
+			}
+		}
+	}
+
+	// Hapus detail terkait
+	var detailIDs []uint
+	for _, transaction := range transactions {
+		if transaction.DetailID != nil {
+			detailIDs = append(detailIDs, *transaction.DetailID)
+		}
+	}
+	if len(detailIDs) > 0 {
+		if err := tx.Unscoped().Where("id IN (?)", detailIDs).Delete(&model.Detail{}).Error; err != nil {
+			tx.Rollback()
+			c.JSON(500, gin.H{"error": "Failed to delete user details"})
+			return
+		}
+	}
+
+	// Hapus transaksi terkait
+	if err := tx.Unscoped().Where("user_id = ?", id).Delete(&model.Transaction{}).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to delete user transactions"})
+		return
+	}
+
+	// Hapus user
+	if err := tx.Unscoped().Delete(&user).Error; err != nil {
+		tx.Rollback()
+		c.JSON(500, gin.H{"error": "Failed to delete user"})
+		return
+	}
+
+	tx.Commit()
+
+	c.JSON(200, gin.H{"message": "User and related data deleted successfully"})
 }

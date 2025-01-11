@@ -22,9 +22,8 @@ func init() {
 			re := regexp.MustCompile(`^[A-Za-z\s]+$`)
 			return re.MatchString(fl.Field().String())
 		})
-		// Register custom validation rule untuk format tanggal (hanya tanggal tanpa jam)
+		// Register custom validation rule untuk format tanggal: YYYY-MM-DD
 		validate.RegisterValidation("date_format", func(fl validator.FieldLevel) bool {
-			// Format yang digunakan untuk validasi tanggal: YYYY-MM-DD
 			_, err := time.Parse("2006-01-02", fl.Field().String())
 			return err == nil
 		})

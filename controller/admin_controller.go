@@ -24,7 +24,6 @@ func CreateAdminHandler(c *gin.Context) {
 		return
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(adminData.Password), bcrypt.DefaultCost)
 	if err != nil {
 		c.JSON(500, gin.H{"error": "Failed to hash password"})
@@ -58,19 +57,12 @@ func GetAllAdminHandler(c *gin.Context) {
 }
 
 func GetAdminHandler(c *gin.Context) {
-	// Ambil ID admin dari parameter URL
 	id := c.Param("id")
 
 	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+	if !roleExists || role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Only admin can access"})
 		return
 	}
 
@@ -81,6 +73,7 @@ func GetAdminHandler(c *gin.Context) {
 		return
 	}
 
+	// Kirimkan data admin
 	c.JSON(200, admin.ToMap())
 }
 
@@ -170,7 +163,7 @@ func DeleteAdminHandler(c *gin.Context) {
 	}
 
 	// Hapus admin
-	if err := config.DB.Delete(&admin).Error; err != nil {
+	if err := config.DB.Unscoped().Delete(&admin).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return
 	}
