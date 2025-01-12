@@ -13,11 +13,14 @@ import (
 func CreateDetailHandler(c *gin.Context) {
 	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
+
+	// Periksa jika role atau currentUserID tidak ditemukan
 	if !currentUserExists || !roleExists || role != "user" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})
 		return
 	}
 
+	// Memvalidasi input dengan Middleware ValidateInput.
 	var detailData middleware.DetailSchema
 	if err := c.ShouldBindJSON(&detailData); err != nil {
 		errors := middleware.FormatValidationErrors(err)
@@ -121,10 +124,19 @@ func GetAllDetailHandler(c *gin.Context) {
 
 	if role == "user" {
 		query = query.Where("transaction.user_id = ?", currentUserID)
+	} else if role != "admin" {
+		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
+		return
 	}
 
 	if err := query.Scan(&detail).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Periksa apakah detail ditemukan
+	if len(detail) == 0 {
+		c.JSON(404, gin.H{"error": "Detail not found"})
 		return
 	}
 
@@ -174,6 +186,7 @@ func GetDetailHandler(c *gin.Context) {
 		Where("detail.id = ?", detail_id).
 		Scan(&detail).Error
 
+	// Periksa apakah detail ditemukan
 	if err != nil || (detail.Code == "" && detail.Status == "" && detail.ItemName == "") {
 		c.JSON(404, gin.H{"error": "Detail not found"})
 		return
@@ -343,7 +356,6 @@ func DeleteDetailHandler(c *gin.Context) {
 		return
 	}
 
-	// Hapus detail
 	if err := config.DB.Unscoped().Delete(&detail).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

@@ -9,3 +9,7 @@ This API provides a comprehensive solution for managing inventory borrowing proc
     * ```JWT_SECRET_KEY = your-secret-key```
 2. execute ```go mod init Gin-Inventory```
 3. execute ```go mod tidy```
+
+# Documentation
+***
+```https://documenter.getpostman.com/view/24280418/2sAYQWKDdX```

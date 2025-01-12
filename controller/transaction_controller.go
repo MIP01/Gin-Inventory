@@ -11,11 +11,14 @@ import (
 func CreateTransactionHandler(c *gin.Context) {
 	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
+
+	// Periksa jika role atau currentUserID tidak ditemukan
 	if !currentUserExists || !roleExists || role != "user" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})
 		return
 	}
 
+	// Memvalidasi input dengan Middleware ValidateInput.
 	var transactionData middleware.TransactionSchema
 	if err := c.ShouldBindJSON(&transactionData); err != nil {
 		errors := middleware.FormatValidationErrors(err)
@@ -80,6 +83,12 @@ func GetTransactionsHandler(c *gin.Context) {
 
 	if err := query.Scan(&transaction).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Periksa apakah detail ditemukan
+	if len(transaction) == 0 {
+		c.JSON(404, gin.H{"error": "Transaction not found"})
 		return
 	}
 

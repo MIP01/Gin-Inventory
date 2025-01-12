@@ -11,6 +11,7 @@ import (
 )
 
 func CreateAdminHandler(c *gin.Context) {
+	// Memvalidasi input dengan Middleware ValidateInput.
 	var adminData middleware.UserSchema
 	if err := c.ShouldBindJSON(&adminData); err != nil {
 		errors := middleware.FormatValidationErrors(err)
@@ -59,10 +60,13 @@ func GetAllAdminHandler(c *gin.Context) {
 func GetAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Only admin can access"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || role != "admin" {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -73,23 +77,25 @@ func GetAdminHandler(c *gin.Context) {
 		return
 	}
 
-	// Kirimkan data admin
+	// Pastikan admin hanya bisa mengakses datanya sendiri
+	if fmt.Sprintf("%v", currentUserID) != id {
+		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+		return
+	}
+
 	c.JSON(200, admin.ToMap())
 }
 
 func UpdateAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || role != "admin" {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -97,6 +103,12 @@ func UpdateAdminHandler(c *gin.Context) {
 	var admin model.Admin
 	if err := config.DB.First(&admin, id).Error; err != nil {
 		c.JSON(404, gin.H{"error": "Admin not found"})
+		return
+	}
+
+	// Pastikan admin hanya bisa mengakses datanya sendiri
+	if fmt.Sprintf("%v", currentUserID) != id {
+		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
 		return
 	}
 
@@ -142,16 +154,13 @@ func UpdateAdminHandler(c *gin.Context) {
 func DeleteAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context (diset oleh middleware)
-	currentUserID, exists := c.Get("current_id")
-	if !exists {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
-		return
-	}
-
+	// Ambil current_id dan role dari context
+	currentUserID, currentUserExists := c.Get("current_id")
 	role, roleExists := c.Get("role")
-	if !roleExists || (role != "admin" && id != fmt.Sprint(currentUserID)) {
-		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+
+	// Periksa jika role atau currentUserID tidak ditemukan
+	if !currentUserExists || !roleExists || role != "admin" {
+		c.JSON(401, gin.H{"error": "Unauthorized"})
 		return
 	}
 
@@ -162,7 +171,12 @@ func DeleteAdminHandler(c *gin.Context) {
 		return
 	}
 
-	// Hapus admin
+	// Pastikan admin hanya bisa mengakses datanya sendiri
+	if fmt.Sprintf("%v", currentUserID) != id {
+		c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
+		return
+	}
+
 	if err := config.DB.Unscoped().Delete(&admin).Error; err != nil {
 		c.JSON(500, gin.H{"error": err.Error()})
 		return

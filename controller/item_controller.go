@@ -9,12 +9,14 @@ import (
 )
 
 func CreateItemHandler(c *gin.Context) {
+	// Periksa jika role tidak ditemukan
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})
 		return
 	}
 
+	// Memvalidasi input dengan Middleware ValidateInput.
 	var itemData middleware.ItemSchema
 	if err := c.ShouldBindJSON(&itemData); err != nil {
 		errors := middleware.FormatValidationErrors(err)
@@ -51,7 +53,6 @@ func GetAllItemHandler(c *gin.Context) {
 }
 
 func GetItemHandler(c *gin.Context) {
-	// Ambil ID item dari parameter URL
 	item_id := c.Param("item_id")
 
 	// Pastikan item ada
@@ -67,6 +68,7 @@ func GetItemHandler(c *gin.Context) {
 func UpdateItemHandler(c *gin.Context) {
 	item_id := c.Param("item_id")
 
+	// Periksa jika role tidak ditemukan
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})
@@ -112,6 +114,7 @@ func UpdateItemHandler(c *gin.Context) {
 func DeleteItemHandler(c *gin.Context) {
 	item_id := c.Param("item_id")
 
+	// Periksa jika role tidak ditemukan
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
 		c.JSON(403, gin.H{"error": "Unauthorized"})

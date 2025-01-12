@@ -11,6 +11,7 @@ import (
 )
 
 func CreateUserHandler(c *gin.Context) {
+	// Memvalidasi input dengan Middleware ValidateInput.
 	var userData middleware.UserSchema
 	if err := c.ShouldBindJSON(&userData); err != nil {
 		errors := middleware.FormatValidationErrors(err)
@@ -89,7 +90,6 @@ func GetUserHandler(c *gin.Context) {
 		return
 	}
 
-	// Kirimkan data user
 	c.JSON(200, user.ToMap())
 }
 
@@ -113,11 +113,11 @@ func UpdateUserHandler(c *gin.Context) {
 		return
 	}
 
-	// Jika role adalah user, pastikan transaksi miliknya
+	// Periksa akses berdasarkan role
 	if role == "user" {
-		// Pastikan transaksi milik pengguna saat ini
-		if err := config.DB.Where("id = ? AND user_id = ?", id, currentUserID).First(&user).Error; err != nil {
-			c.JSON(403, gin.H{"error": "Forbidden: You can only update your own transaction"})
+		// Pastikan user hanya bisa mengakses datanya sendiri
+		if fmt.Sprintf("%v", currentUserID) != id {
+			c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
 			return
 		}
 	} else if role != "admin" {
@@ -170,7 +170,7 @@ func DeleteUserHandler(c *gin.Context) {
 	// Ambil role dari context (diset oleh middleware)
 	role, roleExists := c.Get("role")
 	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Only admin can delete users"})
+		c.JSON(403, gin.H{"error": "Unauthorized"})
 		return
 	}
 
