@@ -32,6 +32,22 @@ func CreateTransactionHandler(c *gin.Context) {
 		return
 	}
 
+	// Cek apakah transaksi dengan UserID dan ItemID sudah ada
+	var existingTransaction model.Transaction
+	if err := config.DB.Where("user_id = ? AND item_id = ?", currentUserID, transactionData.ItemID).First(&existingTransaction).Error; err == nil {
+		// Jika transaksi ditemukan, periksa statusnya
+		if existingTransaction.Status == "draft" {
+			// Jika status "draft", tambahkan kuantitas
+			existingTransaction.Quantity += transactionData.Quantity
+			if err := config.DB.Save(&existingTransaction).Error; err != nil {
+				c.JSON(500, gin.H{"error": err.Error()})
+				return
+			}
+			c.JSON(200, gin.H{"message": "Transaction updated successfully", "transaction": existingTransaction.ToMap()})
+			return
+		}
+	}
+
 	newTransaction := model.Transaction{
 		UserID:   currentUserID.(uint),
 		ItemID:   transactionData.ItemID,
@@ -59,8 +75,10 @@ func GetTransactionsHandler(c *gin.Context) {
 
 	var transaction []struct {
 		ID        uint   `json:"transaction_id"`
+		ItemID    uint   `json:"item_id"`
 		User      string `json:"user"`
 		ItemName  string `json:"item_name"`
+		Stock     int    `json:"stock"`
 		Quantity  int    `json:"quantity"`
 		Status    string `json:"status"`
 		CreatedAt string `json:"created_at"`
@@ -68,7 +86,7 @@ func GetTransactionsHandler(c *gin.Context) {
 	}
 
 	query := config.DB.Table("transaction").
-		Select(`user.name AS user, transaction.id, transaction.quantity, transaction.status, item.name AS item_name, transaction.created_at,
+		Select(`user.name AS user, transaction.id, transaction.quantity, transaction.status, item.id AS item_id, item.name AS item_name, item.stock AS stock, transaction.created_at,
 		transaction.updated_at`).
 		Joins("LEFT JOIN item ON item.id = transaction.item_id").
 		Joins("LEFT JOIN user ON user.id = transaction.user_id")
