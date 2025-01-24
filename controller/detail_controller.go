@@ -276,32 +276,41 @@ func UpdateDetailHandler(c *gin.Context) {
 					c.JSON(500, gin.H{"error": "Failed to update item stock"})
 					return
 				}
+
+				// Update status transaksi menjadi finish
+				for _, transaction := range detail.Transactions {
+					transaction.Status = "finish"
+					if err := config.DB.Save(&transaction).Error; err != nil {
+						c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to update transaction ID %d", transaction.ID)})
+						return
+					}
+				}
 			} else {
 				c.JSON(400, gin.H{"error": "Not enough stock available"})
 				return
 			}
 		}
+	}
 
-		// Jika status berubah dari 'loaned' ke 'return' atau 'pending', kembalikan quantity ke stok
-		if previousStatus == "loaned" && (detail.Status == "return" || detail.Status == "pending" || detail.Status == "rejected") {
-			var item model.Item
-			if err := config.DB.First(&item, detail.Transactions[0].ItemID).Error; err != nil {
-				c.JSON(404, gin.H{"error": "Item not found"})
-				return
-			}
-
-			// Kembalikan stok jika status berubah menjadi 'return' atau 'pending'
-			item.Stock += detail.Transactions[0].Quantity
-			if err := config.DB.Save(&item).Error; err != nil {
-				c.JSON(500, gin.H{"error": "Failed to update item stock"})
-				return
-			}
+	// Jika status berubah dari 'loaned' ke 'return' atau 'pending', kembalikan quantity ke stok
+	if previousStatus == "loaned" && (detail.Status == "return" || detail.Status == "pending" || detail.Status == "rejected") {
+		var item model.Item
+		if err := config.DB.First(&item, detail.Transactions[0].ItemID).Error; err != nil {
+			c.JSON(404, gin.H{"error": "Item not found"})
+			return
 		}
 
-		// Jika status berubah dari 'pending' ke 'rejected', tidak ada perubahan stok
-		if previousStatus == "pending" && detail.Status == "rejected" {
-			// Tidak ada tindakan yang diperlukan, hanya mengubah status
+		// Kembalikan stok jika status berubah menjadi 'return' atau 'pending'
+		item.Stock += detail.Transactions[0].Quantity
+		if err := config.DB.Save(&item).Error; err != nil {
+			c.JSON(500, gin.H{"error": "Failed to update item stock"})
+			return
 		}
+	}
+
+	// Jika status berubah dari 'pending' ke 'rejected', tidak ada perubahan stok
+	if previousStatus == "pending" && detail.Status == "rejected" {
+		// Tidak ada tindakan yang diperlukan, hanya mengubah status
 	}
 
 	// Simpan perubahan

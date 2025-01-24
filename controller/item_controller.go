@@ -17,16 +17,8 @@ func CreateItemHandler(c *gin.Context) {
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	var itemData middleware.ItemSchema
-	if err := c.ShouldBindJSON(&itemData); err != nil {
-		errors := middleware.FormatValidationErrors(err)
-		c.JSON(400, gin.H{"errors": errors})
-		return
-	}
-
-	validationErrors := middleware.ValidateInput(itemData)
-	if validationErrors != nil {
-		c.JSON(400, gin.H{"errors": validationErrors})
+	itemData, valid := middleware.ValidationHelper(c, middleware.ItemSchema{})
+	if !valid {
 		return
 	}
 
@@ -83,16 +75,8 @@ func UpdateItemHandler(c *gin.Context) {
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	var updatedData middleware.ItemSchema
-	if err := c.ShouldBindJSON(&updatedData); err != nil {
-		errors := middleware.FormatValidationErrors(err)
-		c.JSON(400, gin.H{"errors": errors})
-		return
-	}
-
-	validationErrors := middleware.ValidateInput(updatedData)
-	if validationErrors != nil {
-		c.JSON(400, gin.H{"errors": validationErrors})
+	updatedData, valid := middleware.ValidationHelper(c, middleware.ItemSchema{})
+	if !valid {
 		return
 	}
 

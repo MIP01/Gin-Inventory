@@ -12,16 +12,8 @@ import (
 
 func CreateUserHandler(c *gin.Context) {
 	// Memvalidasi input dengan Middleware ValidateInput.
-	var userData middleware.UserSchema
-	if err := c.ShouldBindJSON(&userData); err != nil {
-		errors := middleware.FormatValidationErrors(err)
-		c.JSON(400, gin.H{"errors": errors})
-		return
-	}
-
-	validationErrors := middleware.ValidateInput(userData)
-	if validationErrors != nil {
-		c.JSON(400, gin.H{"errors": validationErrors})
+	userData, valid := middleware.ValidationHelper(c, middleware.UserSchema{})
+	if !valid {
 		return
 	}
 
@@ -126,16 +118,8 @@ func UpdateUserHandler(c *gin.Context) {
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	var updatedData middleware.UpdateSchema
-	if err := c.ShouldBindJSON(&updatedData); err != nil {
-		errors := middleware.FormatValidationErrors(err)
-		c.JSON(400, gin.H{"errors": errors})
-		return
-	}
-
-	validationErrors := middleware.ValidateInput(updatedData)
-	if validationErrors != nil {
-		c.JSON(400, gin.H{"errors": validationErrors})
+	updatedData, valid := middleware.ValidationHelper(c, middleware.UpdateSchema{})
+	if !valid {
 		return
 	}
 

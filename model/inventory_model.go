@@ -55,7 +55,7 @@ func (t *Detail) BeforeSave(tx *gorm.DB) error {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid status: %s, allowed values are: pending, on loan, return", t.Status)
+	return fmt.Errorf("invalid status: %s, allowed values are: pending, loaned, return, rejected", t.Status)
 }
 
 func (u *Detail) TableName() string {
@@ -98,13 +98,13 @@ type Transaction struct {
 
 // BeforeSave hook untuk validasi Status
 func (t *Transaction) BeforeSave(tx *gorm.DB) error {
-	allowedStatuses := []string{"draft", "pending", "finish", "return"}
+	allowedStatuses := []string{"draft", "pending", "finish"}
 	for _, allowedStatus := range allowedStatuses {
 		if t.Status == allowedStatus {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid status: %s, allowed values are: draft, finish, return", t.Status)
+	return fmt.Errorf("invalid status: %s, allowed values are: draft, pending, finish", t.Status)
 }
 
 func (u *Transaction) TableName() string {
