@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"gin_iventory/config"
+	"gin_iventory/helper"
 	"gin_iventory/middleware"
 	"gin_iventory/model"
 
@@ -12,7 +13,7 @@ import (
 
 func CreateUserHandler(c *gin.Context) {
 	// Memvalidasi input dengan Middleware ValidateInput.
-	userData, valid := middleware.ValidationHelper(c, middleware.UserSchema{})
+	userData, valid := helper.ValidationHelper(c, middleware.UserSchema{})
 	if !valid {
 		return
 	}
@@ -53,13 +54,9 @@ func GetAllUserHandler(c *gin.Context) {
 func GetUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || currentUserID == nil {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, role, valid := helper.CheckUserRoleAndID(c, "user", "admin")
+	if !valid {
 		return
 	}
 
@@ -77,9 +74,6 @@ func GetUserHandler(c *gin.Context) {
 			c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
 			return
 		}
-	} else if role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
-		return
 	}
 
 	c.JSON(200, user.ToMap())
@@ -88,13 +82,9 @@ func GetUserHandler(c *gin.Context) {
 func UpdateUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || currentUserID == nil {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, role, valid := helper.CheckUserRoleAndID(c, "user", "admin")
+	if !valid {
 		return
 	}
 
@@ -112,13 +102,10 @@ func UpdateUserHandler(c *gin.Context) {
 			c.JSON(403, gin.H{"error": "Forbidden: You can only access your own data"})
 			return
 		}
-	} else if role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
-		return
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	updatedData, valid := middleware.ValidationHelper(c, middleware.UpdateSchema{})
+	updatedData, valid := helper.ValidationHelper(c, middleware.UpdateSchema{})
 	if !valid {
 		return
 	}
@@ -151,10 +138,9 @@ func UpdateUserHandler(c *gin.Context) {
 func DeleteUserHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil role dari context (diset oleh middleware)
-	role, roleExists := c.Get("role")
-	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Unauthorized"})
+	// handle role
+	_, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 

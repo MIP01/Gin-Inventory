@@ -1,6 +1,8 @@
-package middleware
+package helper
 
 import (
+	"gin_iventory/middleware"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -8,13 +10,13 @@ import (
 func ValidationHelper[T any](c *gin.Context, schema T) (T, bool) {
 	// Bind JSON ke struct
 	if err := c.ShouldBindJSON(&schema); err != nil {
-		errors := FormatValidationErrors(err)
+		errors := middleware.FormatValidationErrors(err)
 		c.JSON(400, gin.H{"errors": errors})
 		return schema, false
 	}
 
 	// Validasi menggunakan ValidateInput
-	if validationErrors := ValidateInput(schema); validationErrors != nil {
+	if validationErrors := middleware.ValidateInput(schema); validationErrors != nil {
 		c.JSON(400, gin.H{"errors": validationErrors})
 		return schema, false
 	}

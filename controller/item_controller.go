@@ -2,6 +2,7 @@ package controller
 
 import (
 	"gin_iventory/config"
+	"gin_iventory/helper"
 	"gin_iventory/middleware"
 	"gin_iventory/model"
 
@@ -9,15 +10,14 @@ import (
 )
 
 func CreateItemHandler(c *gin.Context) {
-	// Periksa jika role tidak ditemukan
-	role, roleExists := c.Get("role")
-	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Unauthorized"})
+	// handle role
+	_, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	itemData, valid := middleware.ValidationHelper(c, middleware.ItemSchema{})
+	itemData, valid := helper.ValidationHelper(c, middleware.ItemSchema{})
 	if !valid {
 		return
 	}
@@ -60,10 +60,9 @@ func GetItemHandler(c *gin.Context) {
 func UpdateItemHandler(c *gin.Context) {
 	item_id := c.Param("item_id")
 
-	// Periksa jika role tidak ditemukan
-	role, roleExists := c.Get("role")
-	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Unauthorized"})
+	// handle role
+	_, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 
@@ -75,7 +74,7 @@ func UpdateItemHandler(c *gin.Context) {
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	updatedData, valid := middleware.ValidationHelper(c, middleware.ItemSchema{})
+	updatedData, valid := helper.ValidationHelper(c, middleware.ItemSchema{})
 	if !valid {
 		return
 	}
@@ -98,10 +97,9 @@ func UpdateItemHandler(c *gin.Context) {
 func DeleteItemHandler(c *gin.Context) {
 	item_id := c.Param("item_id")
 
-	// Periksa jika role tidak ditemukan
-	role, roleExists := c.Get("role")
-	if !roleExists || role != "admin" {
-		c.JSON(403, gin.H{"error": "Unauthorized"})
+	// handle role
+	_, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 

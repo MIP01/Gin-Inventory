@@ -3,6 +3,7 @@ package controller
 import (
 	"fmt"
 	"gin_iventory/config"
+	"gin_iventory/helper"
 	"gin_iventory/middleware"
 	"gin_iventory/model"
 
@@ -12,7 +13,7 @@ import (
 
 func CreateAdminHandler(c *gin.Context) {
 	// Memvalidasi input dengan Middleware ValidateInput.
-	adminData, valid := middleware.ValidationHelper(c, middleware.UserSchema{})
+	adminData, valid := helper.ValidationHelper(c, middleware.UserSchema{})
 	if !valid {
 		return
 	}
@@ -52,13 +53,9 @@ func GetAllAdminHandler(c *gin.Context) {
 func GetAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || role != "admin" {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 
@@ -81,13 +78,9 @@ func GetAdminHandler(c *gin.Context) {
 func UpdateAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || role != "admin" {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 
@@ -105,7 +98,7 @@ func UpdateAdminHandler(c *gin.Context) {
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	updatedData, valid := middleware.ValidationHelper(c, middleware.UpdateSchema{})
+	updatedData, valid := helper.ValidationHelper(c, middleware.UpdateSchema{})
 	if !valid {
 		return
 	}
@@ -138,13 +131,9 @@ func UpdateAdminHandler(c *gin.Context) {
 func DeleteAdminHandler(c *gin.Context) {
 	id := c.Param("id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || role != "admin" {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, _, valid := helper.CheckUserRoleAndID(c, "admin")
+	if !valid {
 		return
 	}
 

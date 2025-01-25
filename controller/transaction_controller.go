@@ -2,6 +2,7 @@ package controller
 
 import (
 	"gin_iventory/config"
+	"gin_iventory/helper"
 	"gin_iventory/middleware"
 	"gin_iventory/model"
 
@@ -9,17 +10,14 @@ import (
 )
 
 func CreateTransactionHandler(c *gin.Context) {
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || role != "user" {
-		c.JSON(403, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, _, valid := helper.CheckUserRoleAndID(c, "user")
+	if !valid {
 		return
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	transactionData, valid := middleware.ValidationHelper(c, middleware.TransactionSchema{})
+	transactionData, valid := helper.ValidationHelper(c, middleware.TransactionSchema{})
 	if !valid {
 		return
 	}
@@ -41,7 +39,7 @@ func CreateTransactionHandler(c *gin.Context) {
 	}
 
 	newTransaction := model.Transaction{
-		UserID:   currentUserID.(uint),
+		UserID:   currentUserID,
 		ItemID:   transactionData.ItemID,
 		Quantity: transactionData.Quantity,
 		Status:   "draft",
@@ -56,12 +54,9 @@ func CreateTransactionHandler(c *gin.Context) {
 }
 
 func GetTransactionsHandler(c *gin.Context) {
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || currentUserID == nil {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, role, valid := helper.CheckUserRoleAndID(c, "user", "admin")
+	if !valid {
 		return
 	}
 
@@ -108,13 +103,9 @@ func GetTransactionsHandler(c *gin.Context) {
 func UpdateTransactionHandler(c *gin.Context) {
 	chart_id := c.Param("chart_id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || currentUserID == nil {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, role, valid := helper.CheckUserRoleAndID(c, "user", "admin")
+	if !valid {
 		return
 	}
 
@@ -132,13 +123,10 @@ func UpdateTransactionHandler(c *gin.Context) {
 			c.JSON(403, gin.H{"error": "Forbidden: You can only update your own transaction"})
 			return
 		}
-	} else if role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
-		return
 	}
 
 	// Memvalidasi input dengan Middleware ValidateInput.
-	updatedData, valid := middleware.ValidationHelper(c, middleware.TransactionSchema{})
+	updatedData, valid := helper.ValidationHelper(c, middleware.TransactionSchema{})
 	if !valid {
 		return
 	}
@@ -167,13 +155,9 @@ func UpdateTransactionHandler(c *gin.Context) {
 func DeleteTransactionHandler(c *gin.Context) {
 	chartID := c.Param("chart_id")
 
-	// Ambil current_id dan role dari context
-	currentUserID, currentUserExists := c.Get("current_id")
-	role, roleExists := c.Get("role")
-
-	// Periksa jika role atau currentUserID tidak ditemukan
-	if !currentUserExists || !roleExists || currentUserID == nil {
-		c.JSON(401, gin.H{"error": "Unauthorized"})
+	// handle role
+	currentUserID, role, valid := helper.CheckUserRoleAndID(c, "user", "admin")
+	if !valid {
 		return
 	}
 
@@ -191,9 +175,6 @@ func DeleteTransactionHandler(c *gin.Context) {
 			c.JSON(403, gin.H{"error": "Forbidden: You can only update your own transaction"})
 			return
 		}
-	} else if role != "admin" {
-		c.JSON(403, gin.H{"error": "Forbidden: Invalid role"})
-		return
 	}
 
 	// Cek status transaksi
