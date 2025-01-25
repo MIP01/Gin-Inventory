@@ -1,11 +1,11 @@
 package controller
 
 import (
+	"Gin-Inventory/config"
+	"Gin-Inventory/helper"
+	"Gin-Inventory/middleware"
+	"Gin-Inventory/model"
 	"fmt"
-	"gin_iventory/config"
-	"gin_iventory/helper"
-	"gin_iventory/middleware"
-	"gin_iventory/model"
 	"time"
 
 	"github.com/gin-gonic/gin"

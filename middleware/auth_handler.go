@@ -3,8 +3,8 @@ package middleware
 import (
 	"time"
 
-	"gin_iventory/config"
-	"gin_iventory/model"
+	"Gin-Inventory/config"
+	"Gin-Inventory/model"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"

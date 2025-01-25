@@ -1,10 +1,10 @@
 package controller
 
 import (
-	"gin_iventory/config"
-	"gin_iventory/helper"
-	"gin_iventory/middleware"
-	"gin_iventory/model"
+	"Gin-Inventory/config"
+	"Gin-Inventory/helper"
+	"Gin-Inventory/middleware"
+	"Gin-Inventory/model"
 
 	"github.com/gin-gonic/gin"
 )

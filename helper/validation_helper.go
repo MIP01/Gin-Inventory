@@ -1,7 +1,7 @@
 package helper
 
 import (
-	"gin_iventory/middleware"
+	"Gin-Inventory/middleware"
 
 	"github.com/gin-gonic/gin"
 )

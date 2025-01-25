@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"gin_iventory/model"
+	"Gin-Inventory/model"
 
 	"github.com/joho/godotenv"
 	"gorm.io/driver/mysql"

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"gin_iventory/config"
-	"gin_iventory/middleware"
-	"gin_iventory/route"
+	"Gin-Inventory/config"
+	"Gin-Inventory/middleware"
+	"Gin-Inventory/route"
 	"log"
 
 	"github.com/gin-gonic/gin"

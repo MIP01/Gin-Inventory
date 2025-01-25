@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gin_iventory/config"
+	"Gin-Inventory/config"
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/gin-gonic/gin"
