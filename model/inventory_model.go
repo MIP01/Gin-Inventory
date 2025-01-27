@@ -59,7 +59,7 @@ func (t *Detail) BeforeSave(tx *gorm.DB) error {
 }
 
 func (u *Detail) TableName() string {
-	return "Detail"
+	return "detail"
 }
 
 // Tambahkan metode ToMap untuk konversi user ke map
