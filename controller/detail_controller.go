@@ -95,6 +95,7 @@ func GetAllDetailHandler(c *gin.Context) {
 	var detail []struct {
 		ID        uint      `json:"detail_id"`
 		Code      string    `json:"code"`
+		User      string    `json:"user"`
 		Out       time.Time `json:"out"`
 		Entry     time.Time `json:"entry"`
 		Status    string    `json:"status"`
@@ -105,10 +106,11 @@ func GetAllDetailHandler(c *gin.Context) {
 	}
 
 	query := config.DB.Table("detail").
-		Select(`detail.id, detail.code, detail.out, detail.entry, detail.status, detail.created_at,
+		Select(`user.name AS user, detail.id, detail.code, detail.out, detail.entry, detail.status, detail.created_at,
 		detail.updated_at, transaction.quantity, item.name AS item_name`).
 		Joins("LEFT JOIN transaction ON transaction.detail_id = detail.id").
-		Joins("LEFT JOIN item ON item.id = transaction.item_id")
+		Joins("LEFT JOIN item ON item.id = transaction.item_id").
+		Joins("LEFT JOIN user ON user.id = transaction.user_id")
 
 	if role == "user" {
 		query = query.Where("transaction.user_id = ?", currentUserID)
@@ -152,6 +154,7 @@ func GetDetailHandler(c *gin.Context) {
 	// Definisikan struktur untuk hasil query
 	var detail struct {
 		Code     string    `json:"code"`
+		User     string    `json:"user"`
 		Out      time.Time `json:"out"`
 		Entry    time.Time `json:"entry"`
 		Status   string    `json:"status"`
@@ -161,9 +164,10 @@ func GetDetailHandler(c *gin.Context) {
 
 	// Query dengan join untuk mendapatkan data yang dibutuhkan
 	err := config.DB.Table("detail").
-		Select("detail.code, detail.out, detail.entry, detail.status, transaction.quantity, item.name AS item_name").
+		Select("user.name AS user, detail.code, detail.out, detail.entry, detail.status, transaction.quantity, item.name AS item_name").
 		Joins("LEFT JOIN transaction ON transaction.detail_id = detail.id").
 		Joins("LEFT JOIN item ON item.id = transaction.item_id").
+		Joins("LEFT JOIN user ON user.id = transaction.user_id").
 		Where("detail.id = ?", detail_id).
 		Scan(&detail).Error
 
@@ -228,47 +232,55 @@ func UpdateDetailHandler(c *gin.Context) {
 
 		// Jika status berubah dari 'pending' ke 'loaned', kurangi quantity dari stok item
 		if previousStatus == "pending" && detail.Status == "loaned" {
-			var item model.Item
-			if err := config.DB.First(&item, detail.Transactions[0].ItemID).Error; err != nil {
-				c.JSON(404, gin.H{"error": "Item not found"})
-				return
-			}
-
-			// Kurangi stok jika status berubah dari pending ke loaned
-			if item.Stock >= detail.Transactions[0].Quantity {
-				item.Stock -= detail.Transactions[0].Quantity
-				if err := config.DB.Save(&item).Error; err != nil {
-					c.JSON(500, gin.H{"error": "Failed to update item stock"})
+			for _, transaction := range detail.Transactions {
+				var item model.Item
+				if err := config.DB.First(&item, transaction.ItemID).Error; err != nil {
+					c.JSON(404, gin.H{"error": fmt.Sprintf("Item with ID %d not found", transaction.ItemID)})
 					return
 				}
 
-				// Update status transaksi menjadi finish
-				for _, transaction := range detail.Transactions {
+				// Kurangi stok jika status berubah dari pending ke loaned
+				if item.Stock >= transaction.Quantity {
+					item.Stock -= transaction.Quantity
+					if err := config.DB.Save(&item).Error; err != nil {
+						c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to update item stock for item ID %d", item.ID)})
+						return
+					}
+
+					// Update status transaksi menjadi finish
 					transaction.Status = "finish"
 					if err := config.DB.Save(&transaction).Error; err != nil {
 						c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to update transaction ID %d", transaction.ID)})
 						return
 					}
+				} else {
+					c.JSON(400, gin.H{"error": fmt.Sprintf("Not enough stock available for item %s", item.Name)})
+					return
 				}
-			} else {
-				c.JSON(400, gin.H{"error": "Not enough stock available"})
-				return
 			}
 		}
-	}
 
-	// Jika status berubah dari 'loaned' ke 'return' atau 'pending', kembalikan quantity ke stok
-	if previousStatus == "loaned" && (detail.Status == "return" || detail.Status == "pending" || detail.Status == "rejected") {
-		var item model.Item
-		if err := config.DB.First(&item, detail.Transactions[0].ItemID).Error; err != nil {
-			c.JSON(404, gin.H{"error": "Item not found"})
-			return
+		// Jika status berubah dari 'loaned' ke 'return' atau 'pending', kembalikan quantity ke stok
+		if previousStatus == "loaned" && (detail.Status == "return" || detail.Status == "pending" || detail.Status == "rejected") {
+			for _, transaction := range detail.Transactions {
+				var item model.Item
+				if err := config.DB.First(&item, transaction.ItemID).Error; err != nil {
+					c.JSON(404, gin.H{"error": fmt.Sprintf("Item with ID %d not found", transaction.ItemID)})
+					return
+				}
+
+				// Kembalikan stok jika status berubah menjadi 'return' atau 'pending'
+				item.Stock += transaction.Quantity
+				if err := config.DB.Save(&item).Error; err != nil {
+					c.JSON(500, gin.H{"error": fmt.Sprintf("Failed to update item stock for item ID %d", item.ID)})
+					return
+				}
+			}
 		}
 
-		// Kembalikan stok jika status berubah menjadi 'return' atau 'pending'
-		item.Stock += detail.Transactions[0].Quantity
-		if err := config.DB.Save(&item).Error; err != nil {
-			c.JSON(500, gin.H{"error": "Failed to update item stock"})
+		// Hanya mengizinkan perubahan ke pending
+		if previousStatus == "rejected" && detail.Status != "pending" {
+			c.JSON(400, gin.H{"error": "rejected status can only be changed to pending"})
 			return
 		}
 	}
