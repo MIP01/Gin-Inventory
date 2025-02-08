@@ -6,6 +6,9 @@ import (
 	"Gin-Inventory/middleware"
 	"Gin-Inventory/model"
 
+	"fmt"
+	"log"
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -22,13 +25,32 @@ func CreateTransactionHandler(c *gin.Context) {
 		return
 	}
 
+	// Cek stok item
+	var item model.Item
+	if err := config.DB.First(&item, transactionData.ItemID).Error; err != nil {
+		c.JSON(404, gin.H{"error": "Item not found"})
+		return
+	}
+
 	// Cek apakah transaksi dengan UserID dan ItemID sudah ada
 	var existingTransaction model.Transaction
 	if err := config.DB.Where("user_id = ? AND item_id = ?", currentUserID, transactionData.ItemID).First(&existingTransaction).Error; err == nil {
 		// Jika transaksi ditemukan, periksa statusnya
 		if existingTransaction.Status == "draft" {
-			// Jika status "draft", tambahkan kuantitas
-			existingTransaction.Quantity += transactionData.Quantity
+			// Hitung total quantity yang akan dimasukkan
+			totalQuantity := existingTransaction.Quantity + transactionData.Quantity
+
+			// Logging untuk debugging
+			log.Printf("Checking stock for item %d: current stock %d, requested quantity %d", item.ID, item.Stock, totalQuantity)
+
+			// Validasi stok
+			if totalQuantity > item.Stock {
+				c.JSON(400, gin.H{"error": fmt.Sprintf("Not enough stock available for item %s. Requested: %d, Available: %d", item.Name, totalQuantity, item.Stock)})
+				return
+			}
+
+			// Jika status "draft" dan stok mencukupi, tambahkan kuantitas
+			existingTransaction.Quantity = totalQuantity
 			if err := config.DB.Save(&existingTransaction).Error; err != nil {
 				c.JSON(500, gin.H{"error": err.Error()})
 				return
@@ -36,6 +58,15 @@ func CreateTransactionHandler(c *gin.Context) {
 			c.JSON(200, gin.H{"message": "Transaction updated successfully", "transaction": existingTransaction.ToMap()})
 			return
 		}
+	}
+
+	// Logging untuk debugging
+	log.Printf("Creating new transaction for item %d: requested quantity %d, available stock %d", item.ID, transactionData.Quantity, item.Stock)
+
+	// Validasi stok untuk transaksi baru
+	if transactionData.Quantity > item.Stock {
+		c.JSON(400, gin.H{"error": fmt.Sprintf("Not enough stock available for item %s. Requested: %d, Available: %d", item.Name, transactionData.Quantity, item.Stock)})
+		return
 	}
 
 	newTransaction := model.Transaction{
